@@ -22,20 +22,20 @@
 ```mermaid
 flowchart TB
     subgraph Web["Web 前端 Vue"]
-        UP[上传 MIB / snmpwalk]
-        CH[聊天框]
+        UP["上传 MIB 与 snmpwalk"]
+        CH["聊天框"]
     end
 
     subgraph API["FastAPI"]
-        UPL[/api/upload]
-        ING[/api/ingest]
-        CHT[/api/chat]
+        UPL["/api/upload"]
+        ING["/api/ingest"]
+        CHT["/api/chat"]
     end
 
     subgraph Core["RAG 核心"]
-        PARSE[snmpwalk 解析]
-        OID[OID 联网查询]
-        RAG[Chroma + MiniMax]
+        PARSE["snmpwalk 解析"]
+        OID["OID 联网查询"]
+        RAG["Chroma + MiniMax"]
     end
 
     UP --> UPL --> PARSE --> OID
