@@ -1,0 +1,42 @@
+MY-COMPANY-SYSTEM-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    OBJECT-TYPE, Integer32
+        FROM SNMPv2-SMI
+    DisplayString
+        FROM SNMPv2-TC;
+
+myCompanySystem MODULE-IDENTITY
+    LAST-UPDATED "202401010000Z"
+    ORGANIZATION "My Company QA Team"
+    DESCRIPTION
+        "Demo MIB for QA-AI-Bot RAG assistant."
+    ::= { enterprises 99999 }
+
+mySystem OBJECT IDENTIFIER ::= { myCompanySystem 1 }
+
+cpuUsage OBJECT-TYPE
+    SYNTAX      Integer32 (0..100)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Current CPU usage percentage (0-100)."
+    ::= { mySystem 1 }
+
+memUsage OBJECT-TYPE
+    SYNTAX      Integer32 (0..100)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Current memory usage percentage (0-100)."
+    ::= { mySystem 2 }
+
+deviceName OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE(0..64))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Device hostname."
+    ::= { mySystem 3 }
+
+END
