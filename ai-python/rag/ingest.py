@@ -36,6 +36,10 @@ def build_vectorsstore():
 
     print(f"4/4 写入 Chroma: {CHROMA_DIR}")
 
+    import shutil
+
+    if CHROMA_DIR.exists():
+        shutil.rmtree(CHROMA_DIR)
     CHROMA_DIR.mkdir(parents=True, exist_ok=True)
 
     vectorstore = Chroma.from_documents(
@@ -45,6 +49,9 @@ def build_vectorsstore():
         collection_name=COLLECTION_NAME,
     )
 
+    from rag.assistant import reset_cache
+
+    reset_cache()
     print("入库完成！")
     return vectorstore
 

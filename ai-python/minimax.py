@@ -1,9 +1,13 @@
 import os
 from openai import OpenAI
+from dotenv import load_dotenv
+from pathlib import Path
+
+load_dotenv(Path(__file__).parent / ".env")
 
 client = OpenAI(
-    base_url="https://api.minimaxi.com/v1",
-    api_key="sk-cp-2yB2VsurvaUSShYQDUCljh4uYRssDae1gECT6_rzqtnyKIub_Y5v2LkvhVvAzbJpS1YR4kg-SIGGI9tUQIZGHK9NwmXiWKYD-DO21oW1p0--mOVrF0zV0UI",
+    base_url=os.getenv("MINIMAX_BASE_URL", "https://api.minimaxi.com/v1"),
+    api_key=os.getenv("MINIMAX_API_KEY", ""),
 )
 
 SYSTEM_PROMPT = "你是一个智能助手，请根据用户的问题给出回答。"
@@ -12,7 +16,7 @@ EXIT_COMMANDS = {"exit", "quit", "q", "退出", "再见"}
 
 def ask_minimax(messages: list) -> str:
     response = client.chat.completions.create(
-        model="MiniMax-M2.7",
+        model=os.getenv("MINIMAX_MODEL", "MiniMax-M2.7"),
         messages=messages,
         stream=True,
     )
@@ -29,6 +33,10 @@ def ask_minimax(messages: list) -> str:
 
 
 def chat_with_minimax():
+    if not os.getenv("MINIMAX_API_KEY"):
+        print("请在 .env 中设置 MINIMAX_API_KEY")
+        return
+
     print("--- 开始与 MiniMax 对话（输入 exit / quit / 退出 结束）---")
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 

@@ -8,6 +8,8 @@ load_dotenv(BASE_DIR / ".env")
 
 # 原始资料目录
 KNOWLEDGE_BASE_DIR = BASE_DIR / "knowledge-base"
+UPLOAD_DIR = KNOWLEDGE_BASE_DIR / "uploads"
+GENERATED_DIR = KNOWLEDGE_BASE_DIR / "generated"
 
 # Chroma 数据库目录
 CHROMA_DIR = BASE_DIR / "chroma-data"
@@ -27,7 +29,15 @@ CHUNK_OVERLAP = int(os.getenv("RAG_CHUNK_OVERLAP", "120"))
 TOP_K = int(os.getenv("RAG_TOP_K", "4"))
 
 # 支持的文件类型
-SUPPORTED_SUFFIXES = {".mib", ".txt", ".md", ".py", ".java", ".yml", ".yaml", ".json"}
+SUPPORTED_SUFFIXES = {
+    ".mib", ".my", ".smi", ".txt", ".md", ".py", ".java",
+    ".yml", ".yaml", ".json", ".snmpwalk", ".walk", ".out", ".log",
+}
+
+# Web API
+API_HOST = os.getenv("API_HOST", "0.0.0.0")
+API_PORT = int(os.getenv("API_PORT", "8000"))
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
 
 
 

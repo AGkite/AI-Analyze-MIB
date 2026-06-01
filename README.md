@@ -1,53 +1,47 @@
 # AI-Analyze-MIB
 
-> 基于 RAG 的私有知识库助手 —— 针对 **MIB 文档**、**SNMP 相关代码** 与内部技术资料进行检索增强问答。
+> 基于 RAG 的 **MIB / snmpwalk** 智能分析平台 —— Web 上传 + 向量检索 + OID 联网解析 + MiniMax 问答。
 
-将企业内部的 MIB 定义、运维文档与代码片段放入本地知识库，通过向量检索 + MiniMax 大模型，实现「有据可依」的智能分析，避免模型凭空编造 OID 或 API。
+将企业私有 MIB 与 `snmpwalk` 结果上传至网页，系统自动解析 OID、构建知识库索引，并在聊天框中给出有据可依的分析结论。对标准公共 OID 与未知企业 OID，支持 **Observium MIB 库** 与 **DuckDuckGo 联网搜索** 实时查询。
 
 ---
 
 ## 特性
 
-- **多格式知识库**：支持 `.mib`、`.md`、`.py`、`.java`、`.json`、`.yml` 等常见格式
-- **本地向量检索**：使用 [Chroma](https://www.trychroma.com/) 持久化向量库，数据留在本机
-- **中文 Embedding**：默认 `BAAI/bge-small-zh-v1.5`，适合中文技术文档
-- **MiniMax 驱动回答**：通过 OpenAI 兼容 API 调用 MiniMax 模型
-- **来源可追溯**：每次回答附带参考文件路径，便于核对
-- **三种使用方式**：单次问答、交互对话、仅重建索引
+- **Web 界面**：Vue 3 + Element Plus，拖拽上传 MIB / snmpwalk，聊天分析
+- **FastAPI 后端**：文件上传、后台索引、流式问答 REST API
+- **snmpwalk 解析**：自动提取 OID，生成 OID 解析报告并纳入 RAG
+- **OID 联网查询**：标准 MIB 本地库 → Observium → 联网搜索（问答时亦可实时查 OID）
+- **CLI 仍可用**：`rag_assistant.py` 支持 ingest / chat / ask
+- **本地向量库**：Chroma + 中文 Embedding，数据留在本机
 
 ---
 
 ## 架构概览
 
 ```mermaid
-flowchart LR
-    subgraph 知识库
-        MIB[MIB 文件]
-        DOC[Markdown 文档]
-        CODE[Python / Java 代码]
+flowchart TB
+    subgraph Web["Web 前端 Vue"]
+        UP[上传 MIB / snmpwalk]
+        CH[聊天框]
     end
 
-    subgraph 入库 ingest
-        LOAD[扫描 knowledge-base]
-        SPLIT[文本切分]
-        EMB[本地 Embedding]
-        CHROMA[(Chroma 向量库)]
+    subgraph API["FastAPI"]
+        UPL[/api/upload]
+        ING[/api/ingest]
+        CHT[/api/chat]
     end
 
-    subgraph 问答 chat / ask
-        Q[用户问题]
-        RET[Top-K 检索]
-        LLM[MiniMax LLM]
-        A[回答 + 来源]
+    subgraph Core["RAG 核心"]
+        PARSE[snmpwalk 解析]
+        OID[OID 联网查询]
+        RAG[Chroma + MiniMax]
     end
 
-    MIB --> LOAD
-    DOC --> LOAD
-    CODE --> LOAD
-    LOAD --> SPLIT --> EMB --> CHROMA
-    Q --> RET
-    CHROMA --> RET
-    RET --> LLM --> A
+    UP --> UPL --> PARSE --> OID
+    UPL --> ING --> RAG
+    CH --> CHT --> OID
+    CHT --> RAG
 ```
 
 ---
@@ -56,98 +50,89 @@ flowchart LR
 
 | 项目 | 说明 |
 |------|------|
-| Python | 3.10+（推荐 3.11 / 3.12） |
-| 磁盘 | 首次入库需下载 Embedding 模型（约数百 MB） |
-| 网络 | 入库阶段需访问 HuggingFace；问答阶段需访问 MiniMax API |
-| API Key | [MiniMax 开放平台](https://platform.minimaxi.com/) 获取 |
+| Python | 3.10+ |
+| Node.js | 18+（前端开发） |
+| 网络 | HuggingFace（Embedding）、MiniMax API、OID 联网查询 |
+| API Key | [MiniMax 开放平台](https://platform.minimaxi.com/) |
 
 ---
 
-## 快速开始
+## 快速开始（Web）
 
-### 1. 克隆仓库
+### 1. 后端
 
 ```bash
 git clone https://github.com/AGkite/AI-Analyze-MIB.git
 cd AI-Analyze-MIB/ai-python
-```
 
-### 2. 创建虚拟环境并安装依赖
-
-```bash
 python -m venv .venv
-
-# Windows
-.venv\Scripts\activate
-
-# macOS / Linux
-source .venv/bin/activate
+.venv\Scripts\activate          # Windows
+# source .venv/bin/activate     # macOS / Linux
 
 pip install -r requirements.txt
+cp .env.example .env            # 填入 MINIMAX_API_KEY
+
+python run_api.py
 ```
 
-### 3. 配置环境变量
+API 默认运行在 http://127.0.0.1:8000 ，文档见 http://127.0.0.1:8000/docs
+
+### 2. 前端
 
 ```bash
-cp .env.example .env
+cd ../frontend
+npm install
+npm run dev
 ```
 
-编辑 `.env`，至少填入你的 `MINIMAX_API_KEY`：
+浏览器打开 http://localhost:5173
 
-```env
-MINIMAX_API_KEY=your_api_key_here
-MINIMAX_MODEL=MiniMax-M2.7
-EMBEDDING_MODEL=BAAI/bge-small-zh-v1.5
-```
+### 3. 使用流程
 
-> `.env` 已加入 `.gitignore`，请勿将密钥提交到 Git。
+1. 上传企业 `.mib` 与 `snmpwalk` / `.walk` 文件
+2. 等待后台索引完成（页面会显示状态）
+3. 在聊天框提问，例如：
+   - `walk 里 1.3.6.1.4.1.99999.1.1.0 对应 MIB 中哪个对象？`
+   - `列出所有未识别的 OID 并解释可能含义`
 
-### 4. 准备知识库
+---
 
-将资料放入 `knowledge-base/` 目录（可按子目录组织）：
-
-```
-knowledge-base/
-├── mib/          # SNMP MIB 定义文件
-├── docs/         # 说明文档、运维手册
-└── code/         # 相关客户端或工具代码
-```
-
-仓库已附带示例文件，可直接用于体验。
-
-### 5. 构建向量索引
+## CLI 用法（可选）
 
 ```bash
+cd ai-python
 python rag_assistant.py ingest
-```
-
-首次运行会下载 Embedding 模型并写入 `chroma-data/`（已忽略，不会进入 Git）。
-
-### 6. 开始问答
-
-**交互模式：**
-
-```bash
 python rag_assistant.py chat
-```
-
-**单次提问：**
-
-```bash
-python rag_assistant.py ask "MY-SYSTEM-MIB 中 cpuUsage 的 OID 后缀是多少？"
+python rag_assistant.py ask "cpuUsage 的访问权限是什么？"
 ```
 
 ---
 
-## 命令说明
+## API 一览
 
-| 命令 | 说明 |
-|------|------|
-| `python rag_assistant.py ingest` | 扫描 `knowledge-base/`，切分文本并写入 Chroma |
-| `python rag_assistant.py chat` | 进入交互式问答（输入 `退出` / `exit` / `quit` 结束） |
-| `python rag_assistant.py ask "问题"` | 单次问答并打印参考来源 |
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/health` | 健康检查 |
+| POST | `/api/upload` | 上传 MIB / snmpwalk（`auto_ingest=true` 自动建索引） |
+| POST | `/api/ingest` | 手动触发索引重建 |
+| GET | `/api/ingest/status` | 索引任务状态 |
+| GET | `/api/files` | 知识库文件列表 |
+| POST | `/api/chat` | 问答（含 OID 实时查询） |
+| POST | `/api/chat/stream` | SSE 流式问答 |
+| POST | `/api/oid/lookup` | 单个 OID 联网解析 |
 
-更新知识库文件后，需重新执行 `ingest` 以刷新索引。
+---
+
+## OID 解析策略
+
+| 顺序 | 来源 | 说明 |
+|------|------|------|
+| 1 | 本地标准库 | `1.3.6.1.2.1.*` 等 SNMPv2-MIB 常见 OID |
+| 2 | Observium | https://mibs.observium.org 在线 MIB 库 |
+| 3 | 联网搜索 | DuckDuckGo 检索 OID 含义 |
+| 4 | 私有 MIB | 结合用户上传的 MIB，由 RAG 上下文回答 |
+
+上传 snmpwalk 时会批量解析并生成 `knowledge-base/generated/oid-analysis-*.md` 报告。
 
 ---
 
@@ -156,121 +141,68 @@ python rag_assistant.py ask "MY-SYSTEM-MIB 中 cpuUsage 的 OID 后缀是多少�
 ```
 AI-Analyze-MIB/
 ├── README.md
-├── .gitignore
+├── frontend/                 # Vue 3 前端
+│   ├── src/
+│   │   ├── App.vue
+│   │   ├── api/client.js
+│   │   └── components/
+│   └── package.json
 └── ai-python/
-    ├── .env.example          # 环境变量模板
-    ├── requirements.txt      # Python 依赖
-    ├── rag_assistant.py      # CLI 入口
-    ├── minimax.py            # MiniMax API 直连示例（非 RAG）
-    ├── knowledge-base/       # 待索引的原始资料
-    │   ├── mib/
-    │   ├── docs/
-    │   └── code/
-    ├── chroma-data/          # 向量库（运行 ingest 后生成，已忽略）
-    └── rag/
-        ├── config.py         # 路径、模型与 RAG 参数
-        ├── loaders.py        # 知识库文件加载
-        ├── ingest.py         # 入库流程
-        └── assistant.py      # 检索链与问答逻辑
+    ├── api/                  # FastAPI 路由
+    ├── rag/                  # RAG、snmpwalk、OID 查询
+    ├── run_api.py            # 启动后端
+    ├── rag_assistant.py      # CLI
+    └── knowledge-base/
+        ├── mib/
+        ├── snmpwalk/
+        └── generated/        # OID 报告（运行时生成）
 ```
 
 ---
 
 ## 配置项
 
-所有配置均可在 `ai-python/.env` 中覆盖，完整列表见 [`.env.example`](ai-python/.env.example)。
+见 [`ai-python/.env.example`](ai-python/.env.example)。常用项：
 
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `MINIMAX_API_KEY` | — | **必填**，MiniMax API 密钥 |
-| `MINIMAX_BASE_URL` | `https://api.minimaxi.com/v1` | API 基地址 |
-| `MINIMAX_MODEL` | `MiniMax-M2.7` | 对话模型 |
-| `EMBEDDING_MODEL` | `BAAI/bge-small-zh-v1.5` | 本地 Embedding 模型 |
-| `RAG_CHUNK_SIZE` | `800` | 文本块大小（字符） |
-| `RAG_CHUNK_OVERLAP` | `120` | 块重叠长度 |
-| `RAG_TOP_K` | `4` | 每次检索返回的文档段数量 |
-
----
-
-## 支持的文件类型
-
-`.mib` · `.txt` · `.md` · `.py` · `.java` · `.yml` · `.yaml` · `.json`
-
-其他后缀的文件会被扫描时自动跳过。如需扩展，可修改 `rag/config.py` 中的 `SUPPORTED_SUFFIXES`。
+| 变量 | 说明 |
+|------|------|
+| `MINIMAX_API_KEY` | **必填** |
+| `EMBEDDING_MODEL` | 默认 `BAAI/bge-small-zh-v1.5` |
+| `API_PORT` | 默认 `8000` |
+| `CORS_ORIGINS` | 前端地址，默认 `http://localhost:5173` |
 
 ---
 
 ## 技术栈
 
-- [LangChain](https://github.com/langchain-ai/langchain) — RAG 编排与文档链
-- [Chroma](https://www.trychroma.com/) — 向量数据库
-- [sentence-transformers](https://www.sbert.net/) / HuggingFace — 本地 Embedding
-- [MiniMax](https://www.minimaxi.com/) — 大语言模型（OpenAI 兼容接口）
-
----
-
-## 示例问题
-
-在默认示例知识库入库后，可尝试：
-
-- `cpuUsage 对象的最大访问权限是什么？`
-- `如何用 Python 读取 CPU 使用率？`
-- `MY-SYSTEM-MIB 包含哪些监控指标？`
+- **后端**：FastAPI、LangChain、Chroma、sentence-transformers、httpx、duckduckgo-search
+- **前端**：Vue 3、Vite、Element Plus、Axios
+- **LLM**：MiniMax（OpenAI 兼容 API）
 
 ---
 
 ## 常见问题
 
 <details>
-<summary><b>提示「向量库不存在」</b></summary>
+<summary><b>索引一直显示构建中</b></summary>
 
-请先执行 `python rag_assistant.py ingest` 完成索引构建。
+首次 ingest 需下载 Embedding 模型，可能需数分钟。查看后端终端日志。
 </details>
 
 <details>
-<summary><b>提示「未设置 MINIMAX_API_KEY」</b></summary>
+<summary><b>OID 联网查询失败</b></summary>
 
-确认已在 `ai-python/.env` 中配置密钥，且文件名、路径正确。
+确认服务器可访问外网。企业内网可配置 HTTP 代理，或仅依赖上传的 MIB + RAG。
 </details>
 
 <details>
-<summary><b>首次 ingest 很慢</b></summary>
+<summary><b>前端无法连接 API</b></summary>
 
-正常现象。需要从 HuggingFace 下载 Embedding 模型，并逐文件切分、向量化。
+确认 `python run_api.py` 已启动，且 Vite 代理指向 `127.0.0.1:8000`。
 </details>
-
-<details>
-<summary><b>回答显示「资料中未找到相关信息」</b></summary>
-
-说明检索片段不足以回答问题。可尝试：补充 `knowledge-base/` 内容、调大 `RAG_TOP_K`、减小 `RAG_CHUNK_SIZE` 后重新 `ingest`。
-</details>
-
-<details>
-<summary><b>HuggingFace 下载失败</b></summary>
-
-可配置镜像或代理，例如：
-
-```bash
-# Windows PowerShell
-$env:HF_ENDPOINT = "https://hf-mirror.com"
-
-# macOS / Linux
-export HF_ENDPOINT=https://hf-mirror.com
-```
-
-然后重新执行 `ingest`。
-</details>
-
----
-
-## 开发说明
-
-- 修改 `rag/` 模块逻辑后，无需重装依赖，但变更知识库内容后需重新 `ingest`
-- `chroma-data/`、`.env`、虚拟环境目录已在 `.gitignore` 中排除
-- 欢迎通过 Issue / Pull Request 贡献 MIB 解析优化、更多 Loader 或部署方案
 
 ---
 
 ## 许可证
 
-本项目尚未指定开源许可证。如需二次分发，请先与仓库维护者确认。
+本项目尚未指定开源许可证。

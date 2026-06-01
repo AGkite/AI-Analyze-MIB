@@ -5,8 +5,10 @@ from rag.config import KNOWLEDGE_BASE_DIR, SUPPORTED_SUFFIXES
 def _doc_type(path: Path) -> str:
     """根据后缀判断文档类型，供 metadata 过滤使用。"""
     suffix = path.suffix.lower()
-    if suffix == ".mib":
+    if suffix in {".mib", ".my", ".smi"}:
         return "mib"
+    if suffix in {".snmpwalk", ".walk", ".out", ".log"}:
+        return "snmpwalk"
     if suffix in {".py", ".java"}:
         return "code"
     if suffix in {".txt", ".md"}:
